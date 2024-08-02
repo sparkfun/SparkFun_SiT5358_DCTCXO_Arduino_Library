@@ -1,7 +1,5 @@
 /*
-  Using alternate I2C addresses for the SiT5358 DCTCXO.
-
-  This example shows how to use an alternate address and TwoWire port for the DCTCXO.
+  Set the frequency of the SiT5358 DCTCXO.
 
   By: Paul Clark
   SparkFun Electronics
@@ -30,26 +28,31 @@ void setup()
 
   Wire.begin(); // Begin the I2C bus
 
-  bool begun;
-  begun = myTCXO.begin(Wire, 0x60); // Initialize the SiT5358 - using a custom bus and address
-  begun = myTCXO.begin(0x60); // This is also possible. It defaults to Wire
-  begun = myTCXO.begin(); // This is also possible. It defaults to Wire and address 0x60
-
-  if (!begun)
+  if (!myTCXO.begin())
   {
     Serial.println("SiT5358 not detected! Please check the address and try again...");
     while (1); // Do nothing more
   }
 
-  // Read the frequency control word - should be zero initially
-  int32_t fcw = myTCXO.getFrequencyControlWord();
-  Serial.print("The frequency control word is: ");
-  Serial.println(fcw);
+  myTCXO.setBaseFrequencyHz(10000000.0); // Pass the oscillator base frequency into the driver
 
-  // Read the pull range control
-  uint8_t prc = myTCXO.getPullRangeControl();
-  Serial.print("Pull range control is: ");
-  Serial.println(myTCXO.getPullRangeControlText(prc));
+  Serial.print("Base frequency set to ");
+  Serial.println(myTCXO.getBaseFrequencyHz());
+  Serial.println(" Hz");
+
+  myTCXO.setPullRangeControl(SiT5358_PULL_RANGE_200ppm); // Set the pull range control to 200ppm
+
+  Serial.print("Pull range control set to ");
+  Serial.println(myTCXO.getPullRangeControlText(myTCXO.getPullRangeControl()));
+
+  myTCXO.setFrequencyHz(10001000.0); // Set the frequency to 10.001MHz (+100ppm)
+
+  Serial.print("Frequency set to ");
+  Serial.print(myTCXO.getFrequencyHz());
+  Serial.println(" Hz");
+
+  Serial.print("Frequency control word should be 16777216. It is ");
+  Serial.println(myTCXO.getFrequencyControlWord());
 }
 
 void loop()

@@ -20,178 +20,338 @@
 
 #include "SparkFun_SiT5358.h"
 
-/// @brief Reset the ADS1219.
-/// @return true if the Configuration Register reads as 0x00.
-bool SfeADS1219Driver::begin()
+/// @brief Begin communication with the SiT5358. Read the registers.
+/// @return true if readRegisters is successful.
+bool SfeSiT5358Driver::begin()
 {
-    // Perform a soft reset so that we make sure the device is addressable.
-    if (!reset())
+    if (_theBus->ping() != kSTkErrOk)
         return false;
 
-    delay(1); // Wait >100us (tRSSTA)
-
-    sfe_ads1219_reg_cfg_t config;
-    bool result = (_theBus->readRegisterByte(kSfeADS1219RegConfigRead, config.byte) == kSTkErrOk);
-    return (result && (config.byte == 0));
+    return readRegisters();
 }
 
-/// @brief Performs a soft reset of the ADC.
-/// @return True if successful, false otherwise.
-bool SfeADS1219Driver::reset()
+/// @brief Read all three SiT5358 registers and update the driver's internal copies
+/// @return true if the read is successful and the Frequency Control MSW and Pull Range Control have 0's where expected
+bool SfeSiT5358Driver::readRegisters(void)
 {
-    return (_theBus->writeByte(kSfeADS1219CommandReset) == kSTkErrOk);
-}
-
-/// @brief Start or restart conversions.
-/// @return True if successful, false otherwise.
-bool SfeADS1219Driver::startSync()
-{
-    return (_theBus->writeByte(kSfeADS1219CommandStartSync) == kSTkErrOk);
-}
-
-/// @brief Enter power-down mode.
-/// @return True if successful, false otherwise.
-bool SfeADS1219Driver::powerDown()
-{
-    return (_theBus->writeByte(kSfeADS1219CommandPowerDown) == kSTkErrOk);
-}
-
-/// @brief Configure the conversion mode.
-/// @return True if successful, false otherwise.
-bool SfeADS1219Driver::setConversionMode(const ads1219_conversion_mode_config_t mode)
-{
-    sfe_ads1219_reg_cfg_t config;
-    if (_theBus->readRegisterByte(kSfeADS1219RegConfigRead, config.byte) != kSTkErrOk) // Read the config register
-        return false;
-    config.cm = (uint8_t)mode;                                                                // Modify (only) the conversion mode
-    return (_theBus->writeRegisterByte(kSfeADS1219RegConfigWrite, config.byte) == kSTkErrOk); // Write the config register
-}
-
-/// @brief Configure the input multiplexer.
-/// @return True if successful, false otherwise.
-bool SfeADS1219Driver::setInputMultiplexer(const ads1219_input_multiplexer_config_t mux)
-{
-    sfe_ads1219_reg_cfg_t config;
-    if (_theBus->readRegisterByte(kSfeADS1219RegConfigRead, config.byte) != kSTkErrOk) // Read the config register
-        return false;
-    config.mux = (uint8_t)mux;                                                                // Modify (only) the input multiplexer
-    return (_theBus->writeRegisterByte(kSfeADS1219RegConfigWrite, config.byte) == kSTkErrOk); // Write the config register
-}
-
-/// @brief Configure the gain.
-/// @return True if successful, false otherwise.
-bool SfeADS1219Driver::setGain(const ads1219_gain_config_t gain)
-{
-    sfe_ads1219_reg_cfg_t config;
-    if (_theBus->readRegisterByte(kSfeADS1219RegConfigRead, config.byte) != kSTkErrOk) // Read the config register
-        return false;
-    config.gain = (uint8_t)gain;                                                              // Modify (only) the gain
-    _adcGain = gain;                                                                          // Update the local copy of the gain for voltage conversion
-    return (_theBus->writeRegisterByte(kSfeADS1219RegConfigWrite, config.byte) == kSTkErrOk); // Write the config register
-}
-
-/// @brief Configure the data rate (samples per second).
-/// @return True if successful, false otherwise.
-bool SfeADS1219Driver::setDataRate(const ads1219_data_rate_config_t rate)
-{
-    sfe_ads1219_reg_cfg_t config;
-    if (_theBus->readRegisterByte(kSfeADS1219RegConfigRead, config.byte) != kSTkErrOk) // Read the config register
-        return false;
-    config.dr = (uint8_t)rate;                                                                // Modify (only) the data rate
-    return (_theBus->writeRegisterByte(kSfeADS1219RegConfigWrite, config.byte) == kSTkErrOk); // Write the config register
-}
-
-/// @brief Configure the voltage reference.
-/// @return True if successful, false otherwise.
-bool SfeADS1219Driver::setVoltageReference(const ads1219_vref_config_t vRef)
-{
-    sfe_ads1219_reg_cfg_t config;
-    if (_theBus->readRegisterByte(kSfeADS1219RegConfigRead, config.byte) != kSTkErrOk) // Read the config register
-        return false;
-    config.vref = (uint8_t)vRef;                                                              // Modify (only) the voltage reference
-    return (_theBus->writeRegisterByte(kSfeADS1219RegConfigWrite, config.byte) == kSTkErrOk); // Write the config register
-}
-
-/// @brief Reads the ADC conversion data, converts it to a usable form, and
-/// saves it to the internal result variable.
-/// @return true if successful, false otherwise.
-bool SfeADS1219Driver::readConversion()
-{
-    uint8_t rawBytes[3];
+    // Read 6 bytes, starting at address kSfeSiT5358RegControlLSW (0x00)
+    uint8_t theBytes[6];
     size_t readBytes;
-    bool result = (_theBus->readRegisterRegion(kSfeADS1219CommandReadData, (uint8_t *)rawBytes, 3, readBytes) == kSTkErrOk);
-    result = result && (readBytes == 3); // Check three bytes were returned
-    if (result)
+    if (_theBus->readRegisterRegion(kSfeSiT5358RegControlLSW, (uint8_t *)&theBytes[0], 6, readBytes) != kSTkErrOk)
+        return false;
+    if (readBytes != 6)
+        return false;
+
+    // Extract the three 16-bit registers - MSB first
+    uint16_t register00 = (((uint16_t)theBytes[0]) << 8) | ((uint16_t)theBytes[1]); // Frequency Control LSW
+    uint16_t register01 = (((uint16_t)theBytes[2]) << 8) | ((uint16_t)theBytes[2]); // Frequency Control MSW
+    uint16_t register02 = (((uint16_t)theBytes[4]) << 8) | ((uint16_t)theBytes[5]); // Pull Range Control
+
+    if ((register01 & 0xF800) != 0)
+        return false; // Return false if Frequency Control MSW bits 11-15 are non-zero
+    if ((register02 & 0xFFF0) != 0)
+        return false; // Return false if Pull Range Control bits 4-15 are non-zero
+    
+    // Extract the frequency control and OE bits from register01
+    sfe_SiT5358_reg_control_msw_t controlMSW;
+    controlMSW.word = register01;
+    union // Avoid any ambiguity when converting uint32_t to int32_t
     {
-        // Data is 3-bytes (24-bits), big-endian (MSB first).
-        union
-        {
-            int32_t i32;
-            uint32_t u32;
-        } iu32; // Use a union to avoid signed / unsigned ambiguity
-        iu32.u32 = rawBytes[0];
-        iu32.u32 = (iu32.u32 << 8) | rawBytes[1];
-        iu32.u32 = (iu32.u32 << 8) | rawBytes[2];
-        // Preserve the 2's complement.
-        if (0x00800000 == (iu32.u32 & 0x00800000))
-            iu32.u32 = iu32.u32 | 0xFF000000;
-        _adcResult = iu32.i32; // Store the signed result
+        uint32_t unsigned32;
+        int32_t signed32;
+    } unsignedSigned32;
+    unsignedSigned32.unsigned32 = (((uint32_t)controlMSW.freqControl) << 16) | ((uint32_t)register00);
+    if ((unsignedSigned32.unsigned32 & 0x02000000) != 0) // Two's complement
+        unsignedSigned32.unsigned32 |= 0xFC000000;
+    _frequencyControl = unsignedSigned32.signed32; // Store the two's complement frequency control word
+
+    _oe = (bool)controlMSW.oe; // Store the OE bit (option "J" only)
+
+    _pullRange = theBytes[5] & 0x0F; // Store the pull range control nibble
+
+    return true;
+}
+
+/// @brief Get the 26-bit frequency control word - from the driver's internal copy
+/// @return The 26-bit frequency control word as int32_t (signed, two's complement)
+int32_t SfeSiT5358Driver::getFrequencyControlWord(void)
+{
+    return _frequencyControl;
+}
+
+/// @brief Set the 26-bit frequency control word - and update the driver's internal copy
+/// @param freq the frequency control word as int32_t (signed, two's complement)
+/// @return true if the write is successful
+bool SfeSiT5358Driver::setFrequencyControlWord(int32_t freq)
+{
+    uint8_t theBytes[4];
+
+    union // Avoid any ambiguity when converting uint32_t to int32_t
+    {
+        uint32_t unsigned32;
+        int32_t signed32;
+    } unsignedSigned32;
+    unsignedSigned32.signed32 = freq;
+    theBytes[0] = (uint8_t)((unsignedSigned32.unsigned32 & 0x0000FF00) >> 8);
+    theBytes[1] = (uint8_t)(unsignedSigned32.unsigned32 & 0x000000FF);
+    theBytes[2] = (uint8_t)((unsignedSigned32.unsigned32 & 0x03000000) >> 24) | (((uint8_t)_oe) << 2);
+    theBytes[3] = (uint8_t)((unsignedSigned32.unsigned32& 0x00FF0000) >> 16);
+
+    if (_theBus->writeRegisterRegion(0x00, (const uint8_t *)&theBytes[0], 4) != kSTkErrOk)
+        return false; // Return false if the write failed
+
+    _frequencyControl = freq; // Only update the driver's copy if the write was successful
+    return true;
+}
+
+/// @brief Get the OE control bit - from the driver's internal copy
+/// @return The OE control bit as bool
+bool SfeSiT5358Driver::getOEControl(void)
+{
+    return _oe;
+}
+
+/// @brief Set the OE control - and update the driver's internal copy
+/// @param oe the OE control bit : false = disabled; true = enabled
+/// @return true if the write is successful
+/// Note: only valid on option "J" parts
+bool SfeSiT5358Driver::setOEControl(bool oe)
+{
+    // It may be possible to write only the 16-bit MSW, but, for safety, write both LSW and MSW
+    uint8_t theBytes[4];
+
+    union // Avoid any ambiguity when converting uint32_t to int32_t
+    {
+        uint32_t unsigned32;
+        int32_t signed32;
+    } unsignedSigned32;
+    unsignedSigned32.signed32 = _frequencyControl;
+    theBytes[0] = (uint8_t)((unsignedSigned32.unsigned32 & 0x0000FF00) >> 8);
+    theBytes[1] = (uint8_t)(unsignedSigned32.unsigned32 & 0x000000FF);
+    theBytes[2] = (uint8_t)((unsignedSigned32.unsigned32 & 0x03000000) >> 24) | (((uint8_t)oe) << 2);
+    theBytes[3] = (uint8_t)((unsignedSigned32.unsigned32 & 0x00FF0000) >> 16);
+
+    if (_theBus->writeRegisterRegion(kSfeSiT5358RegControlLSW, (const uint8_t *)&theBytes[0], 4) != kSTkErrOk)
+        return false; // Return false if the write failed
+
+    _oe = oe; // Only update the driver's copy if the write was successful
+    return true;    
+}
+
+/// @brief Get the 4-bit pull range control - from the driver's internal copy
+/// @return The 4-bit pull range as uint8_t (in the four LS bits)
+uint8_t SfeSiT5358Driver::getPullRangeControl(void)
+{
+    return _pullRange;
+}
+
+/// @brief Set the 4-bit pull range control - and update the driver's internal copy
+/// @param pullRange the 4-bit pull range (in the four LS bits)
+/// @return true if the write is successful
+bool SfeSiT5358Driver::setPullRangeControl(uint8_t pullRange)
+{
+    uint8_t theBytes[2];
+
+    theBytes[0] = 0;
+    theBytes[1] = pullRange & 0x0F;
+
+    if (_theBus->writeRegisterRegion(kSfeSiT5358RegPullRange, (const uint8_t *)&theBytes[0], 2) != kSTkErrOk)
+        return false; // Return false if the write failed
+
+    _pullRange = pullRange; // Only update the driver's copy if the write was successful
+    return true;
+}
+
+/// @brief Get the base oscillator frequency - from the driver's internal copy
+/// @return The oscillator base frequency as double
+double SfeSiT5358Driver::getBaseFrequencyHz(void)
+{
+    return _baseFrequencyHz;
+}
+
+/// @brief Set the base oscillator frequency in Hz - set the driver's internal _baseFrequencyHz
+/// @param freq the base frequency in Hz
+void SfeSiT5358Driver::setBaseFrequencyHz(double freq)
+{
+    _baseFrequencyHz = freq;
+}
+
+/// @brief Get the oscillator frequency based on the base frequency, pull range and control word
+/// @return The oscillator frequency as double
+double SfeSiT5358Driver::getFrequencyHz(void)
+{
+    double pullRangeDbl = getPullRangeControlDouble(_pullRange);
+
+    double freqControl = (double)_frequencyControl;
+
+    if (freqControl >= 0.0)
+        freqControl /= 33554431.0; // Scale 0.0 to 1.0
+    else
+        freqControl /= 33554432.0; // Scale 0.0 to -1.0
+
+    double freqOffsetHz = _baseFrequencyHz * freqControl * pullRangeDbl;
+    double freqHz = _baseFrequencyHz + freqOffsetHz;
+
+    return freqHz;
+}
+
+/// @brief Set the oscillator frequency based on the base frequency and pull range
+/// @param freq the oscillator frequency in Hz
+/// @return true if the write is successful
+/// Note: The frequency change will be limited by the pull range capabilities of the device.
+///       Call getFrequencyHz to read the frequency set.
+/// Note: setFrequencyHz ignores _maxFrequencyChangePPB. It applies freq if it is in range.
+bool SfeSiT5358Driver::setFrequencyHz(double freq)
+{
+    // Calculate the frequency offset from the base frequency
+    double freqOffsetHz = freq - _baseFrequencyHz;
+
+    // Calculate the frequency offset as a fraction of the pull range
+    double pullRangeDbl = getPullRangeControlDouble(_pullRange);
+
+    double maxFreqOffsetHz = _baseFrequencyHz * pullRangeDbl;
+
+    double freqControl = freqOffsetHz / maxFreqOffsetHz;
+
+    if (freqControl >= 0.0)
+    {
+        if (freqControl > 1.0)
+            freqControl = 1.0;
+
+        freqControl *= 33554431.0;
     }
-    return result;
+    else
+    {
+        if (freqControl < -1.0)
+            freqControl = -1.0;
+
+        freqControl *= 33554432.0;
+    }
+
+    int32_t freqControlInt = (int32_t)freqControl;
+
+    // Just in case, ensure freqControlInt is limited to 2^25 (26-bits signed)
+    if (freqControlInt > 33554431)
+        freqControlInt = 33554431;
+
+    if (freqControlInt < -33554432)
+        freqControlInt = -33554432;
+
+    return setFrequencyControlWord(freqControlInt);
 }
 
-/// @brief  Return the conversion result which was read by readConversion.
-/// Convert it to mV using referenceVoltageMillivolts and the _adcGain.
-/// @param  referenceVoltageMillivolts Usually the internal 2.048V reference voltage.
-/// But the user can override with (REFP - REFN) when using the external reference.
-/// @return The voltage in millivolts
-float SfeADS1219Driver::getConversionMillivolts(float referenceVoltageMillivolts)
+/// @brief Get the maximum frequency change in PPB
+/// @return The maximum frequency change in PPB - from the driver's internal store
+double SfeSiT5358Driver::getMaxFrequencyChangePPB(void)
 {
-    float mV = _adcResult;            // Convert int32_t to float
-    mV /= 8388608.0;                  // Convert to a fraction of full-scale (2^23)
-    mV *= referenceVoltageMillivolts; // Convert to millivolts
-    if (_adcGain == ADS1219_GAIN_4)
-        mV /= 4.0; // Correct for the gain
-    return mV;
+    return _maxFrequencyChangePPB;
 }
 
-/// @brief  Return the raw conversion result which was read by readConversion.
-/// @return The raw signed conversion result. 24-bit (2's complement).
-/// NOT adjusted for gain.
-int32_t SfeADS1219Driver::getConversionRaw(void)
+/// @brief Set the maximum frequency change in PPB - set the driver's internal _maxFrequencyChangePPB
+/// @param ppb the maximum frequency change in PPB
+void SfeSiT5358Driver::setMaxFrequencyChangePPB(double ppb)
 {
-    return _adcResult;
+    _maxFrequencyChangePPB = ppb;
 }
 
-/// @brief Check the data ready flag.
-/// @return true if data is ready.
-bool SfeADS1219Driver::dataReady(void)
+/// @brief Set the frequency according to the GNSS receiver clock bias in milliseconds
+/// @param bias the GNSS RX clock bias in milliseconds
+/// @return true if the write is successful
+/// Note: the frequency change will be limited by: the pull range capabilities of the device;
+///       and the setMaxFrequencyChangePPB. Call getFrequencyHz to read the frequency set.
+bool SfeSiT5358Driver::setFrequencyByBiasMillis(double bias)
 {
-    sfe_ads1219_reg_status_t status;
-    bool result = (_theBus->readRegisterByte(kSfeADS1219RegStatusRead, status.byte) == kSTkErrOk);
-    return (result && (status.drdy == 1));
+    return false;
 }
 
-/// @brief  Read the ADS1219 Configuration Register into a sfe_ads1219_reg_cfg_t struct.
-/// @param  config Reference of a sfe_ads1219_reg_cfg_t struct to hold the register contents.
-/// @return True if successful, false otherwise.
-bool SfeADS1219Driver::getConfigurationRegister(sfe_ads1219_reg_cfg_t &config)
+/// @brief Convert the 4-bit pull range into text
+/// @return the pull range as text
+const char * SfeSiT5358Driver::getPullRangeControlText(uint8_t pullRange)
 {
-    return (_theBus->readRegisterByte(kSfeADS1219RegConfigRead, config.byte) == kSTkErrOk); // Read the config register
+    switch (pullRange)
+    {
+        default: // Can only be true if pullRange is invalid (>= 0x10)
+            return ("Invalid");
+        case SiT5358_PULL_RANGE_6ppm25:
+            return "6.25ppm";
+        case SiT5358_PULL_RANGE_10ppm:
+            return "10ppm";
+        case SiT5358_PULL_RANGE_12ppm5:
+            return "12.5ppm";
+        case SiT5358_PULL_RANGE_25ppm:
+            return "25ppm";
+        case SiT5358_PULL_RANGE_50ppm:
+            return "50ppm";
+        case SiT5358_PULL_RANGE_80ppm:
+            return "80ppm";
+        case SiT5358_PULL_RANGE_100ppm:
+            return "100ppm";
+        case SiT5358_PULL_RANGE_125ppm:
+            return "125ppm";
+        case SiT5358_PULL_RANGE_150ppm:
+            return "150ppm";
+        case SiT5358_PULL_RANGE_200ppm:
+            return "200ppm";
+        case SiT5358_PULL_RANGE_400ppm:
+            return "400ppm";
+        case SiT5358_PULL_RANGE_600ppm:
+            return "600ppm";
+        case SiT5358_PULL_RANGE_800ppm:
+            return "800ppm";
+        case SiT5358_PULL_RANGE_1200ppm:
+            return "1200ppm";
+        case SiT5358_PULL_RANGE_1600ppm:
+            return "1600ppm";
+        case SiT5358_PULL_RANGE_3200ppm:
+            return "3200ppm";
+    }
 }
 
-/// @brief  Write a sfe_ads1219_reg_cfg_t struct into the ADS1219 Configuration Register.
-/// @param  config A sfe_ads1219_reg_cfg_t struct holding the register contents.
-/// @return True if successful, false otherwise.
-bool SfeADS1219Driver::setConfigurationRegister(sfe_ads1219_reg_cfg_t config)
+/// @brief Convert the 4-bit pull range into double
+/// @return the pull range as double
+double SfeSiT5358Driver::getPullRangeControlDouble(uint8_t pullRange)
 {
-    _adcGain = (ads1219_gain_config_t)config.gain;                                                                   // Update the local copy of the gain for voltage conversion
-    return (_theBus->writeRegisterByte(kSfeADS1219RegConfigWrite, config.byte) == kSTkErrOk); // Write the config register
+    switch (pullRange & 0x0F)
+    {
+        default:
+        case SiT5358_PULL_RANGE_6ppm25:
+            return 6.25e-6;
+        case SiT5358_PULL_RANGE_10ppm:
+            return 10e-6;
+        case SiT5358_PULL_RANGE_12ppm5:
+            return 12.5e-6;
+        case SiT5358_PULL_RANGE_25ppm:
+            return 25e-6;
+        case SiT5358_PULL_RANGE_50ppm:
+            return 50e-6;
+        case SiT5358_PULL_RANGE_80ppm:
+            return 80e-6;
+        case SiT5358_PULL_RANGE_100ppm:
+            return 100e-6;
+        case SiT5358_PULL_RANGE_125ppm:
+            return 125e-6;
+        case SiT5358_PULL_RANGE_150ppm:
+            return 150e-6;
+        case SiT5358_PULL_RANGE_200ppm:
+            return 200e-6;
+        case SiT5358_PULL_RANGE_400ppm:
+            return 400e-6;
+        case SiT5358_PULL_RANGE_600ppm:
+            return 600e-6;
+        case SiT5358_PULL_RANGE_800ppm:
+            return 800e-6;
+        case SiT5358_PULL_RANGE_1200ppm:
+            return 1200e-6;
+        case SiT5358_PULL_RANGE_1600ppm:
+            return 1600e-6;
+        case SiT5358_PULL_RANGE_3200ppm:
+            return 3200e-6;
+    }
 }
 
-/// @brief  PRIVATE: update the local pointer to the I2C bus.
+/// @brief  PROTECTED: update the local pointer to the I2C bus.
 /// @param  theBus Pointer to the bus object.
-void SfeADS1219Driver::setCommunicationBus(sfeTkArdI2C *theBus)
+void SfeSiT5358Driver::setCommunicationBus(sfeTkArdI2C *theBus)
 {
     _theBus = theBus;
 }

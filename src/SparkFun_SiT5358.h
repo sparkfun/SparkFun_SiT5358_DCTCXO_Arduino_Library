@@ -142,13 +142,18 @@ class SfeSiT5358Driver
 public:
     // @brief Constructor. Instantiate the driver object using the specified address (if desired).
     SfeSiT5358Driver()
-        : _baseFrequency{10000000.0}, _maxFrequencyChangePPB{3200000.0}
+        : _baseFrequencyHz{10000000.0}, _maxFrequencyChangePPB{3200000.0}
     {
     }
 
-    /// @brief Begin communication with the SiT5358.
-    /// @return true if the Frequency Control MSW and Pull Range Control have 0's where expected.
+    /// @brief Begin communication with the SiT5358. Read the registers.
+    /// @return true if readRegisters is successful.
     bool begin(void);
+
+    /// @brief Read all three SiT5358 registers and update the driver's internal copies
+    /// @return true if the read is successful and the Frequency Control MSW and Pull Range Control have 0's where expected
+    bool readRegisters(void);
+
 
     /// @brief Get the 26-bit frequency control word - from the driver's internal copy
     /// @return The 26-bit frequency control word as int32_t (signed, two's complement)
@@ -158,6 +163,7 @@ public:
     /// @param freq the frequency control word as int32_t (signed, two's complement)
     /// @return true if the write is successful
     bool setFrequencyControlWord(int32_t freq);
+
 
     /// @brief Get the OE control bit - from the driver's internal copy
     /// @return The OE control bit as bool
@@ -169,6 +175,7 @@ public:
     /// Note: only valid on option "J" parts
     bool setOEControl(bool oe);
 
+
     /// @brief Get the 4-bit pull range control - from the driver's internal copy
     /// @return The 4-bit pull range as uint8_t (in the four LS bits)
     uint8_t getPullRangeControl(void);
@@ -178,9 +185,15 @@ public:
     /// @return true if the write is successful
     bool setPullRangeControl(uint8_t pullRange);
 
-    /// @brief Set the base oscillator frequency in Hz - set the driver's internal _baseFrequency
+
+    /// @brief Get the base oscillator frequency - from the driver's internal copy
+    /// @return The oscillator base frequency as double
+    double getBaseFrequencyHz(void);
+
+    /// @brief Set the base oscillator frequency in Hz - set the driver's internal _baseFrequencyHz
     /// @param freq the base frequency in Hz
     void setBaseFrequencyHz(double freq);
+
 
     /// @brief Get the oscillator frequency based on the base frequency, pull range and control word
     /// @return The oscillator frequency as double
@@ -189,17 +202,20 @@ public:
     /// @brief Set the oscillator frequency based on the base frequency and pull range
     /// @param freq the oscillator frequency in Hz
     /// @return true if the write is successful
-    /// Note: the frequency change will be limited by: the pull range capabilities of the device;
-    ///       and the setMaxFrequencyChangePPM. Call getFrequencyHz to read the frequency set.
+    /// Note: The frequency change will be limited by the pull range capabilities of the device.
+    ///       Call getFrequencyHz to read the frequency set.
+    /// Note: setFrequencyHz ignores _maxFrequencyChangePPB. It applies freq if it is in range.
     bool setFrequencyHz(double freq);
+
+
+    /// @brief Get the maximum frequency change in PPB
+    /// @return The maximum frequency change in PPB - from the driver's internal store
+    double getMaxFrequencyChangePPB(void);
 
     /// @brief Set the maximum frequency change in PPB - set the driver's internal _maxFrequencyChangePPB
     /// @param ppb the maximum frequency change in PPB
     void setMaxFrequencyChangePPB(double ppb);
 
-    /// @brief Get the maximum frequency change in PPB
-    /// @return The maximum frequency change in PPB - from the driver's internal store
-    double getMaxFrequencyChangePPB(void);
 
     /// @brief Set the frequency according to the GNSS receiver clock bias in milliseconds
     /// @param bias the GNSS RX clock bias in milliseconds
@@ -207,6 +223,15 @@ public:
     /// Note: the frequency change will be limited by: the pull range capabilities of the device;
     ///       and the setMaxFrequencyChangePPB. Call getFrequencyHz to read the frequency set.
     bool setFrequencyByBiasMillis(double bias);
+
+
+    /// @brief Convert the 4-bit pull range into text
+    /// @return the pull range as text
+    const char * getPullRangeControlText(uint8_t pullRange);
+
+    /// @brief Convert the 4-bit pull range into double
+    /// @return the pull range as double
+    double getPullRangeControlDouble(uint8_t pullRange);
 
 protected:
     /// @brief Sets the communication bus to the specified bus.
@@ -219,8 +244,8 @@ private:
     int32_t _frequencyControl; // Local store for the frequency control word. 26-Bit, 2's complement
     uint8_t _pullRange; // Local store for the pull range control nibble. 4-bit
     bool _oe; // Local store for the OE control bit
-    double _baseFrequency; // The base frequency used by getFrequencyHz and setFrequencyHz
-    double _maxFrequencyChangePPB; // The maximum frequency change in PPB for setFrequencyHz and setFrequencyByBiasMillis
+    double _baseFrequencyHz; // The base frequency used by getFrequencyHz and setFrequencyHz
+    double _maxFrequencyChangePPB; // The maximum frequency change in PPB for setFrequencyByBiasMillis
 };
 
 class SfeSiT5358ArdI2C : public SfeSiT5358Driver

@@ -103,7 +103,7 @@ jobs:
             - source-url: https://github.com/sparkfun/SparkFun_Toolkit.git
             # - name: name-of-library-registered-with-arduino-library-manager
           sketch-paths: |
-            - examples/Example05_AlternateAddress
+            - examples/Example01_AlternateAddress
           enable-warnings-report: true
           enable-deltas-report: true
           verbose: true
