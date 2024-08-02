@@ -44,7 +44,7 @@ bool SfeSiT5358Driver::readRegisters(void)
 
     // Extract the three 16-bit registers - MSB first
     uint16_t register00 = (((uint16_t)theBytes[0]) << 8) | ((uint16_t)theBytes[1]); // Frequency Control LSW
-    uint16_t register01 = (((uint16_t)theBytes[2]) << 8) | ((uint16_t)theBytes[2]); // Frequency Control MSW
+    uint16_t register01 = (((uint16_t)theBytes[2]) << 8) | ((uint16_t)theBytes[3]); // Frequency Control MSW
     uint16_t register02 = (((uint16_t)theBytes[4]) << 8) | ((uint16_t)theBytes[5]); // Pull Range Control
 
     if ((register01 & 0xF800) != 0)
