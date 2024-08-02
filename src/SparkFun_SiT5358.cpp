@@ -261,7 +261,29 @@ void SfeSiT5358Driver::setMaxFrequencyChangePPB(double ppb)
 ///       and the setMaxFrequencyChangePPB. Call getFrequencyHz to read the frequency set.
 bool SfeSiT5358Driver::setFrequencyByBiasMillis(double bias)
 {
-    return false;
+    double freq = getFrequencyHz();
+
+    double clockInterval_s = 1.0 / freq; // Convert freq to interval in seconds
+
+    double biasInClocks = bias / 1000.0; // Convert bias from millis to seconds
+    biasInClocks /= clockInterval_s; // Convert bias to clock cycles
+
+    double maxChangeInClocks = freq * _maxFrequencyChangePPB / 1.0e9;
+
+    if (biasInClocks >= 0.0)
+    {
+        if (biasInClocks > maxChangeInClocks)
+            biasInClocks = maxChangeInClocks;
+    }
+    else
+    {
+        if (biasInClocks < (0.0 - maxChangeInClocks))
+            biasInClocks = 0.0 - maxChangeInClocks;
+    }
+
+    double newFreq = freq - biasInClocks;
+
+    return setFrequencyHz(newFreq);
 }
 
 /// @brief Convert the 4-bit pull range into text

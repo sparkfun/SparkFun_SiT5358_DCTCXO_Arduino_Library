@@ -1,6 +1,8 @@
 /*
   Set the frequency of the SiT5358 DCTCXO.
 
+  This example demonstrates what happens when an illegal (out of bounds) frequency is selected.
+
   By: Paul Clark
   SparkFun Electronics
   Date: 2024/8/1
@@ -45,13 +47,13 @@ void setup()
   Serial.print("Pull range control set to ");
   Serial.println(myTCXO.getPullRangeControlText(myTCXO.getPullRangeControl()));
 
-  myTCXO.setFrequencyHz(10001000.0); // Set the frequency to 10.001MHz (+100ppm)
+  myTCXO.setFrequencyHz(9900000.0); // Try to set the frequency to 9.9MHz (-10000ppm)
 
   Serial.print("Frequency set to ");
   Serial.print(myTCXO.getFrequencyHz());
   Serial.println(" Hz");
 
-  Serial.print("Frequency control word should be 16777215. It is ");
+  Serial.print("Frequency control word should be -33554432. It is ");
   Serial.println(myTCXO.getFrequencyControlWord());
 }
 
