@@ -200,7 +200,7 @@ double SfeSiT5358Driver::getFrequencyHz(void)
 /// @return true if the write is successful
 /// Note: The frequency change will be limited by the pull range capabilities of the device.
 ///       Call getFrequencyHz to read the frequency set.
-/// Note: setFrequencyHz ignores _maxFrequencyChangePPB. It applies freq if it is in range.
+/// Note: setFrequencyHz ignores _maxFrequencyChangePPB.
 bool SfeSiT5358Driver::setFrequencyHz(double freq)
 {
     // Calculate the frequency offset from the base frequency

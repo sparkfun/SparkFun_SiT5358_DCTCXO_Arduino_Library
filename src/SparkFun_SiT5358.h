@@ -165,6 +165,7 @@ public:
 
     /// @brief Set the base oscillator frequency in Hz - set the driver's internal _baseFrequencyHz
     /// @param freq the base frequency in Hz
+    /// @return true if the write is successful
     void setBaseFrequencyHz(double freq);
 
 
@@ -177,7 +178,7 @@ public:
     /// @return true if the write is successful
     /// Note: The frequency change will be limited by the pull range capabilities of the device.
     ///       Call getFrequencyHz to read the frequency set.
-    /// Note: setFrequencyHz ignores _maxFrequencyChangePPB. It applies freq if it is in range.
+    /// Note: setFrequencyHz ignores _maxFrequencyChangePPB.
     bool setFrequencyHz(double freq);
 
 
