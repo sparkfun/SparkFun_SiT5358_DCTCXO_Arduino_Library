@@ -20,7 +20,7 @@ Repository Contents
 -------------------
 
 * **/.github/workflows** - GitHub workflow actions files
-* **/examples** - Arduino examples for the ADS1219
+* **/examples** - Arduino examples for the SiT5358
 * **/src** - Library source files (.cpp & .h)
 
 License Information
