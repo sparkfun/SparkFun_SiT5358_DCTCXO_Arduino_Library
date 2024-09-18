@@ -256,20 +256,32 @@ void SfeSiT5358Driver::setMaxFrequencyChangePPB(double ppb)
 
 /// @brief Set the frequency according to the GNSS receiver clock bias in milliseconds
 /// @param bias the GNSS RX clock bias in milliseconds
+/// @param Pk the Proportional term (default 1.0)
+/// @param Ik the Integral term (default 0.0)
 /// @return true if the write is successful
 /// Note: the frequency change will be limited by: the pull range capabilities of the device;
 ///       and the setMaxFrequencyChangePPB. Call getFrequencyHz to read the frequency set.
-bool SfeSiT5358Driver::setFrequencyByBiasMillis(double bias)
+bool SfeSiT5358Driver::setFrequencyByBiasMillis(double bias, double Pk, double Ik)
 {
     double freq = getFrequencyHz();
+
+    static double I;
+    static bool initialized = false;
+    if (!initialized)
+    {
+        I = freq; // Initialize I with the current frequency for a more reasonable startup
+        initialized = true;
+    }
 
     double clockInterval_s = 1.0 / freq; // Convert freq to interval in seconds
 
     double biasInClocks = bias / 1000.0; // Convert bias from millis to seconds
     biasInClocks /= clockInterval_s; // Convert bias to clock cycles
 
+    // Calculate the maximum frequency change in clock cycles
     double maxChangeInClocks = freq * _maxFrequencyChangePPB / 1.0e9;
 
+    // Limit biasInClocks to +/-maxChangeInClocks
     if (biasInClocks >= 0.0)
     {
         if (biasInClocks > maxChangeInClocks)
@@ -281,9 +293,11 @@ bool SfeSiT5358Driver::setFrequencyByBiasMillis(double bias)
             biasInClocks = 0.0 - maxChangeInClocks;
     }
 
-    double newFreq = freq - biasInClocks;
+    double P = biasInClocks * Pk;
+    double dI = biasInClocks * Ik;
+    I += dI;
 
-    return setFrequencyHz(newFreq);
+    return setFrequencyHz(P + I);
 }
 
 /// @brief Convert the 4-bit pull range into text
