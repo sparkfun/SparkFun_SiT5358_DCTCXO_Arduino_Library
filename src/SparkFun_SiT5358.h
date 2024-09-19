@@ -193,14 +193,6 @@ public:
 
     /// @brief Set the frequency according to the GNSS receiver clock bias in milliseconds
     /// @param bias the GNSS RX clock bias in milliseconds
-    /// @return true if the write is successful
-    /// Note: the frequency change will be limited by: the pull range capabilities of the device;
-    ///       and the setMaxFrequencyChangePPB. Call getFrequencyHz to read the frequency set.
-    bool setFrequencyByBiasMillis(double bias);
-
-
-    /// @brief Set the frequency according to the GNSS receiver clock bias in milliseconds
-    /// @param bias the GNSS RX clock bias in milliseconds
     /// @param Pk the Proportional term
     /// @param Ik the Integral term
     /// @return true if the write is successful

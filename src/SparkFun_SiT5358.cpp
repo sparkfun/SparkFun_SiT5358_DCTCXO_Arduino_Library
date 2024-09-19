@@ -275,6 +275,7 @@ bool SfeSiT5358Driver::setFrequencyByBiasMillis(double bias, double Pk, double I
 
     double clockInterval_s = 1.0 / freq; // Convert freq to interval in seconds
 
+    // bias (RXClkBias, milliseconds) is the error term we are trying to drive to zero
     double biasInClocks = bias / 1000.0; // Convert bias from millis to seconds
     biasInClocks /= clockInterval_s; // Convert bias to clock cycles
 
@@ -293,11 +294,17 @@ bool SfeSiT5358Driver::setFrequencyByBiasMillis(double bias, double Pk, double I
             biasInClocks = 0.0 - maxChangeInClocks;
     }
 
+    // If RxClkBias is positive, we need to reduce the oscillator frequency by making
+    // the frequency control word more negative. Both Pk and Ik must be negative.
+    if (Pk > 0.0)
+        (Pk *= -1.0);
+    if (Ik > 0.0)
+        (Ik *= -1.0);
     double P = biasInClocks * Pk;
     double dI = biasInClocks * Ik;
-    I += dI;
+    I += dI; // Add the delta to the integral
 
-    return setFrequencyHz(P + I);
+    return setFrequencyHz(P + I); // Set the frequency to proportional plus integral
 }
 
 /// @brief Convert the 4-bit pull range into text
