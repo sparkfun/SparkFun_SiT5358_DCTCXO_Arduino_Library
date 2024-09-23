@@ -261,6 +261,8 @@ void SfeSiT5358Driver::setMaxFrequencyChangePPB(double ppb)
 /// @return true if the write is successful
 /// Note: the frequency change will be limited by: the pull range capabilities of the device;
 ///       and the setMaxFrequencyChangePPB. Call getFrequencyHz to read the frequency set.
+/// The default values for Pk and Ik come from very approximate Ziegler-Nichols tuning:
+/// oscillation starts when Pk is ~1.4; with a period of ~5 seconds.
 bool SfeSiT5358Driver::setFrequencyByBiasMillis(double bias, double Pk, double Ik)
 {
     double freq = getFrequencyHz();
@@ -275,33 +277,29 @@ bool SfeSiT5358Driver::setFrequencyByBiasMillis(double bias, double Pk, double I
 
     double clockInterval_s = 1.0 / freq; // Convert freq to interval in seconds
 
-    // bias (RXClkBias, milliseconds) is the error term we are trying to drive to zero
-    double biasInClocks = bias / 1000.0; // Convert bias from millis to seconds
-    biasInClocks /= clockInterval_s; // Convert bias to clock cycles
+    // Our setpoint is zero. Bias is the process value. Convert it to error
+    double error = 0.0 - bias;
+
+    double errorInClocks = error / 1000.0; // Convert error from millis to seconds
+    errorInClocks /= clockInterval_s; // Convert error to clock cycles
 
     // Calculate the maximum frequency change in clock cycles
     double maxChangeInClocks = freq * _maxFrequencyChangePPB / 1.0e9;
 
-    // Limit biasInClocks to +/-maxChangeInClocks
-    if (biasInClocks >= 0.0)
+    // Limit errorInClocks to +/-maxChangeInClocks
+    if (errorInClocks >= 0.0)
     {
-        if (biasInClocks > maxChangeInClocks)
-            biasInClocks = maxChangeInClocks;
+        if (errorInClocks > maxChangeInClocks)
+            errorInClocks = maxChangeInClocks;
     }
     else
     {
-        if (biasInClocks < (0.0 - maxChangeInClocks))
-            biasInClocks = 0.0 - maxChangeInClocks;
+        if (errorInClocks < (0.0 - maxChangeInClocks))
+            errorInClocks = 0.0 - maxChangeInClocks;
     }
 
-    // If RxClkBias is positive, we need to reduce the oscillator frequency by making
-    // the frequency control word more negative. Both Pk and Ik must be negative.
-    if (Pk > 0.0)
-        (Pk *= -1.0);
-    if (Ik > 0.0)
-        (Ik *= -1.0);
-    double P = biasInClocks * Pk;
-    double dI = biasInClocks * Ik;
+    double P = errorInClocks * Pk;
+    double dI = errorInClocks * Ik;
     I += dI; // Add the delta to the integral
 
     return setFrequencyHz(P + I); // Set the frequency to proportional plus integral

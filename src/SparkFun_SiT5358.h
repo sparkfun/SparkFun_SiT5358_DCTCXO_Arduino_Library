@@ -198,7 +198,9 @@ public:
     /// @return true if the write is successful
     /// Note: the frequency change will be limited by: the pull range capabilities of the device;
     ///       and the setMaxFrequencyChangePPB. Call getFrequencyHz to read the frequency set.
-    bool setFrequencyByBiasMillis(double bias, double Pk = 1.0, double Ik = 0.0);
+    /// The default values for Pk and Ik come from very approximate Ziegler-Nichols tuning:
+    /// oscillation starts when Pk is ~1.4; with a period of ~5 seconds.
+    bool setFrequencyByBiasMillis(double bias, double Pk = 0.63, double Ik = 0.151);
 
 
     /// @brief Convert the 4-bit pull range into text
