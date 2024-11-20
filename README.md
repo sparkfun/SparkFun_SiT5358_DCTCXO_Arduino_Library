@@ -6,7 +6,7 @@ SparkFun SiT5358 DCTCXO Arduino Library
         <td><a href="https://www.sparkfun.com/products/26289"><img src="" alt="Standard"></a></td>
     </tr>
     <tr align="center">
-        <td><a href="https://www.sparkfun.com/products/26289">SparkFun RTK mosaic-T</a></td>
+        <td><a href="https://www.sparkfun.com/products/26289">SparkFun GNSSDO</a></td>
     </tr>
 </table>
 
