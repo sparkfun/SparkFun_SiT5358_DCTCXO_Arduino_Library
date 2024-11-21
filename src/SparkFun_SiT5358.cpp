@@ -256,8 +256,8 @@ void SfeSiT5358Driver::setMaxFrequencyChangePPB(double ppb)
 
 /// @brief Set the frequency according to the GNSS receiver clock bias in milliseconds
 /// @param bias the GNSS RX clock bias in milliseconds
-/// @param Pk the Proportional term (default 1.0)
-/// @param Ik the Integral term (default 0.0)
+/// @param Pk the Proportional term
+/// @param Ik the Integral term
 /// @return true if the write is successful
 /// Note: the frequency change will be limited by: the pull range capabilities of the device;
 ///       and the setMaxFrequencyChangePPB. Call getFrequencyHz to read the frequency set.

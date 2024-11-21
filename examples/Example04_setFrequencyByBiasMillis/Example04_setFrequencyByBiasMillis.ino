@@ -81,7 +81,13 @@ void setup()
   Serial.print(myTCXO.getMaxFrequencyChangePPB());
   Serial.println(" PPB");
 
-  myTCXO.setFrequencyByBiasMillis(200.0e-6); // Set the frequency by clock bias (+200ns, +200e-6ms)
+  Serial.print("Frequency control word should be 0. It is ");
+  Serial.println(myTCXO.getFrequencyControlWord());
+
+  Serial.println("Applying a clock bias of +200ns");
+  // Set the frequency by clock bias (+200ns, +200e-6ms)
+  // For this test, set the P term to 1.0 and the I term to 0.0
+  myTCXO.setFrequencyByBiasMillis(200.0e-6, 1.0, 0.0);
 
   Serial.print("Frequency should be 9999999.97 Hz. It is ");
   Serial.print(myTCXO.getFrequencyHz());
