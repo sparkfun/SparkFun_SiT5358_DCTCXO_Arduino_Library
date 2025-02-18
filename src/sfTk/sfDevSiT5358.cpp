@@ -18,26 +18,31 @@
 
 */
 
-#include "SparkFun_SiT5358.h"
+#include "sfDevSiT5358.h"
 
 /// @brief Begin communication with the SiT5358. Read the registers.
 /// @return true if readRegisters is successful.
-bool SfeSiT5358Driver::begin()
+sfTkError_t sfDevSiT5358::begin(sfTkII2C *commBus)
 {
-    if (_theBus->ping() != kSTkErrOk)
-        return false;
+    if (commBus == nullptr)
+        return ksfTkErrFail;
 
-    return readRegisters();
+    _theBus = commBus;
+
+    if (_theBus->ping() != ksfTkErrOk)
+        return ksfTkErrFail;
+
+    return readRegisters() ? ksfTkErrOk : ksfTkErrFail;
 }
 
 /// @brief Read all three SiT5358 registers and update the driver's internal copies
 /// @return true if the read is successful and the Frequency Control MSW and Pull Range Control have 0's where expected
-bool SfeSiT5358Driver::readRegisters(void)
+bool sfDevSiT5358::readRegisters(void)
 {
     // Read 6 bytes, starting at address kSfeSiT5358RegControlLSW (0x00)
     uint8_t theBytes[6];
     size_t readBytes;
-    if (_theBus->readRegisterRegion(kSfeSiT5358RegControlLSW, (uint8_t *)&theBytes[0], 6, readBytes) != kSTkErrOk)
+    if (_theBus->readRegisterRegion(kSfeSiT5358RegControlLSW, (uint8_t *)&theBytes[0], 6, readBytes) != ksfTkErrOk)
         return false;
     if (readBytes != 6)
         return false;
@@ -51,7 +56,7 @@ bool SfeSiT5358Driver::readRegisters(void)
         return false; // Return false if Frequency Control MSW bits 11-15 are non-zero
     if ((register02 & 0xFFF0) != 0)
         return false; // Return false if Pull Range Control bits 4-15 are non-zero
-    
+
     // Extract the frequency control and OE bits from register01
     sfe_SiT5358_reg_control_msw_t controlMSW;
     controlMSW.word = register01;
@@ -74,7 +79,7 @@ bool SfeSiT5358Driver::readRegisters(void)
 
 /// @brief Get the 26-bit frequency control word - from the driver's internal copy
 /// @return The 26-bit frequency control word as int32_t (signed, two's complement)
-int32_t SfeSiT5358Driver::getFrequencyControlWord(void)
+int32_t sfDevSiT5358::getFrequencyControlWord(void)
 {
     return _frequencyControl;
 }
@@ -82,7 +87,7 @@ int32_t SfeSiT5358Driver::getFrequencyControlWord(void)
 /// @brief Set the 26-bit frequency control word - and update the driver's internal copy
 /// @param freq the frequency control word as int32_t (signed, two's complement)
 /// @return true if the write is successful
-bool SfeSiT5358Driver::setFrequencyControlWord(int32_t freq)
+bool sfDevSiT5358::setFrequencyControlWord(int32_t freq)
 {
     uint8_t theBytes[4];
 
@@ -95,9 +100,9 @@ bool SfeSiT5358Driver::setFrequencyControlWord(int32_t freq)
     theBytes[0] = (uint8_t)((unsignedSigned32.unsigned32 & 0x0000FF00) >> 8);
     theBytes[1] = (uint8_t)(unsignedSigned32.unsigned32 & 0x000000FF);
     theBytes[2] = (uint8_t)((unsignedSigned32.unsigned32 & 0x03000000) >> 24) | (((uint8_t)_oe) << 2);
-    theBytes[3] = (uint8_t)((unsignedSigned32.unsigned32& 0x00FF0000) >> 16);
+    theBytes[3] = (uint8_t)((unsignedSigned32.unsigned32 & 0x00FF0000) >> 16);
 
-    if (_theBus->writeRegisterRegion(0x00, (const uint8_t *)&theBytes[0], 4) != kSTkErrOk)
+    if (_theBus->writeRegisterRegion(0x00, (const uint8_t *)&theBytes[0], 4) != ksfTkErrOk)
         return false; // Return false if the write failed
 
     _frequencyControl = freq; // Only update the driver's copy if the write was successful
@@ -106,7 +111,7 @@ bool SfeSiT5358Driver::setFrequencyControlWord(int32_t freq)
 
 /// @brief Get the OE control bit - from the driver's internal copy
 /// @return The OE control bit as bool
-bool SfeSiT5358Driver::getOEControl(void)
+bool sfDevSiT5358::getOEControl(void)
 {
     return _oe;
 }
@@ -115,7 +120,7 @@ bool SfeSiT5358Driver::getOEControl(void)
 /// @param oe the OE control bit : false = disabled; true = enabled
 /// @return true if the write is successful
 /// Note: only valid on option "J" parts
-bool SfeSiT5358Driver::setOEControl(bool oe)
+bool sfDevSiT5358::setOEControl(bool oe)
 {
     // It may be possible to write only the 16-bit MSW, but, for safety, write both LSW and MSW
     uint8_t theBytes[4];
@@ -131,16 +136,16 @@ bool SfeSiT5358Driver::setOEControl(bool oe)
     theBytes[2] = (uint8_t)((unsignedSigned32.unsigned32 & 0x03000000) >> 24) | (((uint8_t)oe) << 2);
     theBytes[3] = (uint8_t)((unsignedSigned32.unsigned32 & 0x00FF0000) >> 16);
 
-    if (_theBus->writeRegisterRegion(kSfeSiT5358RegControlLSW, (const uint8_t *)&theBytes[0], 4) != kSTkErrOk)
+    if (_theBus->writeRegisterRegion(kSfeSiT5358RegControlLSW, (const uint8_t *)&theBytes[0], 4) != ksfTkErrOk)
         return false; // Return false if the write failed
 
     _oe = oe; // Only update the driver's copy if the write was successful
-    return true;    
+    return true;
 }
 
 /// @brief Get the 4-bit pull range control - from the driver's internal copy
 /// @return The 4-bit pull range as uint8_t (in the four LS bits)
-uint8_t SfeSiT5358Driver::getPullRangeControl(void)
+uint8_t sfDevSiT5358::getPullRangeControl(void)
 {
     return _pullRange;
 }
@@ -148,14 +153,14 @@ uint8_t SfeSiT5358Driver::getPullRangeControl(void)
 /// @brief Set the 4-bit pull range control - and update the driver's internal copy
 /// @param pullRange the 4-bit pull range (in the four LS bits)
 /// @return true if the write is successful
-bool SfeSiT5358Driver::setPullRangeControl(uint8_t pullRange)
+bool sfDevSiT5358::setPullRangeControl(uint8_t pullRange)
 {
     uint8_t theBytes[2];
 
     theBytes[0] = 0;
     theBytes[1] = pullRange & 0x0F;
 
-    if (_theBus->writeRegisterRegion(kSfeSiT5358RegPullRange, (const uint8_t *)&theBytes[0], 2) != kSTkErrOk)
+    if (_theBus->writeRegisterRegion(kSfeSiT5358RegPullRange, (const uint8_t *)&theBytes[0], 2) != ksfTkErrOk)
         return false; // Return false if the write failed
 
     _pullRange = pullRange; // Only update the driver's copy if the write was successful
@@ -164,21 +169,21 @@ bool SfeSiT5358Driver::setPullRangeControl(uint8_t pullRange)
 
 /// @brief Get the base oscillator frequency - from the driver's internal copy
 /// @return The oscillator base frequency as double
-double SfeSiT5358Driver::getBaseFrequencyHz(void)
+double sfDevSiT5358::getBaseFrequencyHz(void)
 {
     return _baseFrequencyHz;
 }
 
 /// @brief Set the base oscillator frequency in Hz - set the driver's internal _baseFrequencyHz
 /// @param freq the base frequency in Hz
-void SfeSiT5358Driver::setBaseFrequencyHz(double freq)
+void sfDevSiT5358::setBaseFrequencyHz(double freq)
 {
     _baseFrequencyHz = freq;
 }
 
 /// @brief Get the oscillator frequency based on the base frequency, pull range and control word
 /// @return The oscillator frequency as double
-double SfeSiT5358Driver::getFrequencyHz(void)
+double sfDevSiT5358::getFrequencyHz(void)
 {
     double pullRangeDbl = getPullRangeControlDouble(_pullRange);
 
@@ -201,7 +206,7 @@ double SfeSiT5358Driver::getFrequencyHz(void)
 /// Note: The frequency change will be limited by the pull range capabilities of the device.
 ///       Call getFrequencyHz to read the frequency set.
 /// Note: setFrequencyHz ignores _maxFrequencyChangePPB.
-bool SfeSiT5358Driver::setFrequencyHz(double freq)
+bool sfDevSiT5358::setFrequencyHz(double freq)
 {
     // Calculate the frequency offset from the base frequency
     double freqOffsetHz = freq - _baseFrequencyHz;
@@ -242,14 +247,14 @@ bool SfeSiT5358Driver::setFrequencyHz(double freq)
 
 /// @brief Get the maximum frequency change in PPB
 /// @return The maximum frequency change in PPB - from the driver's internal store
-double SfeSiT5358Driver::getMaxFrequencyChangePPB(void)
+double sfDevSiT5358::getMaxFrequencyChangePPB(void)
 {
     return _maxFrequencyChangePPB;
 }
 
 /// @brief Set the maximum frequency change in PPB - set the driver's internal _maxFrequencyChangePPB
 /// @param ppb the maximum frequency change in PPB
-void SfeSiT5358Driver::setMaxFrequencyChangePPB(double ppb)
+void sfDevSiT5358::setMaxFrequencyChangePPB(double ppb)
 {
     _maxFrequencyChangePPB = ppb;
 }
@@ -263,7 +268,7 @@ void SfeSiT5358Driver::setMaxFrequencyChangePPB(double ppb)
 ///       and the setMaxFrequencyChangePPB. Call getFrequencyHz to read the frequency set.
 /// The default values for Pk and Ik come from very approximate Ziegler-Nichols tuning:
 /// oscillation starts when Pk is ~1.4; with a period of ~5 seconds.
-bool SfeSiT5358Driver::setFrequencyByBiasMillis(double bias, double Pk, double Ik)
+bool sfDevSiT5358::setFrequencyByBiasMillis(double bias, double Pk, double Ik)
 {
     double freq = getFrequencyHz();
 
@@ -281,7 +286,7 @@ bool SfeSiT5358Driver::setFrequencyByBiasMillis(double bias, double Pk, double I
     double error = 0.0 - bias;
 
     double errorInClocks = error / 1000.0; // Convert error from millis to seconds
-    errorInClocks /= clockInterval_s; // Convert error to clock cycles
+    errorInClocks /= clockInterval_s;      // Convert error to clock cycles
 
     // Calculate the maximum frequency change in clock cycles
     double maxChangeInClocks = freq * _maxFrequencyChangePPB / 1.0e9;
@@ -307,92 +312,92 @@ bool SfeSiT5358Driver::setFrequencyByBiasMillis(double bias, double Pk, double I
 
 /// @brief Convert the 4-bit pull range into text
 /// @return the pull range as text
-const char * SfeSiT5358Driver::getPullRangeControlText(uint8_t pullRange)
+const char *sfDevSiT5358::getPullRangeControlText(uint8_t pullRange)
 {
     switch (pullRange)
     {
-        default: // Can only be true if pullRange is invalid (>= 0x10)
-            return ("Invalid");
-        case SiT5358_PULL_RANGE_6ppm25:
-            return "6.25ppm";
-        case SiT5358_PULL_RANGE_10ppm:
-            return "10ppm";
-        case SiT5358_PULL_RANGE_12ppm5:
-            return "12.5ppm";
-        case SiT5358_PULL_RANGE_25ppm:
-            return "25ppm";
-        case SiT5358_PULL_RANGE_50ppm:
-            return "50ppm";
-        case SiT5358_PULL_RANGE_80ppm:
-            return "80ppm";
-        case SiT5358_PULL_RANGE_100ppm:
-            return "100ppm";
-        case SiT5358_PULL_RANGE_125ppm:
-            return "125ppm";
-        case SiT5358_PULL_RANGE_150ppm:
-            return "150ppm";
-        case SiT5358_PULL_RANGE_200ppm:
-            return "200ppm";
-        case SiT5358_PULL_RANGE_400ppm:
-            return "400ppm";
-        case SiT5358_PULL_RANGE_600ppm:
-            return "600ppm";
-        case SiT5358_PULL_RANGE_800ppm:
-            return "800ppm";
-        case SiT5358_PULL_RANGE_1200ppm:
-            return "1200ppm";
-        case SiT5358_PULL_RANGE_1600ppm:
-            return "1600ppm";
-        case SiT5358_PULL_RANGE_3200ppm:
-            return "3200ppm";
+    default: // Can only be true if pullRange is invalid (>= 0x10)
+        return ("Invalid");
+    case SiT5358_PULL_RANGE_6ppm25:
+        return "6.25ppm";
+    case SiT5358_PULL_RANGE_10ppm:
+        return "10ppm";
+    case SiT5358_PULL_RANGE_12ppm5:
+        return "12.5ppm";
+    case SiT5358_PULL_RANGE_25ppm:
+        return "25ppm";
+    case SiT5358_PULL_RANGE_50ppm:
+        return "50ppm";
+    case SiT5358_PULL_RANGE_80ppm:
+        return "80ppm";
+    case SiT5358_PULL_RANGE_100ppm:
+        return "100ppm";
+    case SiT5358_PULL_RANGE_125ppm:
+        return "125ppm";
+    case SiT5358_PULL_RANGE_150ppm:
+        return "150ppm";
+    case SiT5358_PULL_RANGE_200ppm:
+        return "200ppm";
+    case SiT5358_PULL_RANGE_400ppm:
+        return "400ppm";
+    case SiT5358_PULL_RANGE_600ppm:
+        return "600ppm";
+    case SiT5358_PULL_RANGE_800ppm:
+        return "800ppm";
+    case SiT5358_PULL_RANGE_1200ppm:
+        return "1200ppm";
+    case SiT5358_PULL_RANGE_1600ppm:
+        return "1600ppm";
+    case SiT5358_PULL_RANGE_3200ppm:
+        return "3200ppm";
     }
 }
 
 /// @brief Convert the 4-bit pull range into double
 /// @return the pull range as double
-double SfeSiT5358Driver::getPullRangeControlDouble(uint8_t pullRange)
+double sfDevSiT5358::getPullRangeControlDouble(uint8_t pullRange)
 {
     switch (pullRange & 0x0F)
     {
-        default:
-        case SiT5358_PULL_RANGE_6ppm25:
-            return 6.25e-6;
-        case SiT5358_PULL_RANGE_10ppm:
-            return 10e-6;
-        case SiT5358_PULL_RANGE_12ppm5:
-            return 12.5e-6;
-        case SiT5358_PULL_RANGE_25ppm:
-            return 25e-6;
-        case SiT5358_PULL_RANGE_50ppm:
-            return 50e-6;
-        case SiT5358_PULL_RANGE_80ppm:
-            return 80e-6;
-        case SiT5358_PULL_RANGE_100ppm:
-            return 100e-6;
-        case SiT5358_PULL_RANGE_125ppm:
-            return 125e-6;
-        case SiT5358_PULL_RANGE_150ppm:
-            return 150e-6;
-        case SiT5358_PULL_RANGE_200ppm:
-            return 200e-6;
-        case SiT5358_PULL_RANGE_400ppm:
-            return 400e-6;
-        case SiT5358_PULL_RANGE_600ppm:
-            return 600e-6;
-        case SiT5358_PULL_RANGE_800ppm:
-            return 800e-6;
-        case SiT5358_PULL_RANGE_1200ppm:
-            return 1200e-6;
-        case SiT5358_PULL_RANGE_1600ppm:
-            return 1600e-6;
-        case SiT5358_PULL_RANGE_3200ppm:
-            return 3200e-6;
+    default:
+    case SiT5358_PULL_RANGE_6ppm25:
+        return 6.25e-6;
+    case SiT5358_PULL_RANGE_10ppm:
+        return 10e-6;
+    case SiT5358_PULL_RANGE_12ppm5:
+        return 12.5e-6;
+    case SiT5358_PULL_RANGE_25ppm:
+        return 25e-6;
+    case SiT5358_PULL_RANGE_50ppm:
+        return 50e-6;
+    case SiT5358_PULL_RANGE_80ppm:
+        return 80e-6;
+    case SiT5358_PULL_RANGE_100ppm:
+        return 100e-6;
+    case SiT5358_PULL_RANGE_125ppm:
+        return 125e-6;
+    case SiT5358_PULL_RANGE_150ppm:
+        return 150e-6;
+    case SiT5358_PULL_RANGE_200ppm:
+        return 200e-6;
+    case SiT5358_PULL_RANGE_400ppm:
+        return 400e-6;
+    case SiT5358_PULL_RANGE_600ppm:
+        return 600e-6;
+    case SiT5358_PULL_RANGE_800ppm:
+        return 800e-6;
+    case SiT5358_PULL_RANGE_1200ppm:
+        return 1200e-6;
+    case SiT5358_PULL_RANGE_1600ppm:
+        return 1600e-6;
+    case SiT5358_PULL_RANGE_3200ppm:
+        return 3200e-6;
     }
 }
 
 /// @brief  PROTECTED: update the local pointer to the I2C bus.
 /// @param  theBus Pointer to the bus object.
-void SfeSiT5358Driver::setCommunicationBus(sfeTkArdI2C *theBus)
+void sfDevSiT5358::setCommunicationBus(sfTkII2C *theBus)
 {
     _theBus = theBus;
 }
