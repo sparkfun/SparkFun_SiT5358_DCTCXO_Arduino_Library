@@ -42,7 +42,7 @@ bool sfDevSiT5358::readRegisters(void)
     // Read 6 bytes, starting at address kSfeSiT5358RegControlLSW (0x00)
     uint8_t theBytes[6];
     size_t readBytes;
-    if (_theBus->readRegisterRegion(kSfeSiT5358RegControlLSW, (uint8_t *)&theBytes[0], 6, readBytes) != ksfTkErrOk)
+    if (_theBus->readRegister(kSfeSiT5358RegControlLSW, (uint8_t *)&theBytes[0], 6, readBytes) != ksfTkErrOk)
         return false;
     if (readBytes != 6)
         return false;
@@ -102,7 +102,7 @@ bool sfDevSiT5358::setFrequencyControlWord(int32_t freq)
     theBytes[2] = (uint8_t)((unsignedSigned32.unsigned32 & 0x03000000) >> 24) | (((uint8_t)_oe) << 2);
     theBytes[3] = (uint8_t)((unsignedSigned32.unsigned32 & 0x00FF0000) >> 16);
 
-    if (_theBus->writeRegisterRegion(0x00, (const uint8_t *)&theBytes[0], 4) != ksfTkErrOk)
+    if (_theBus->writeRegister((uint8_t)0x00, (const uint8_t *)&theBytes[0], 4) != ksfTkErrOk)
         return false; // Return false if the write failed
 
     _frequencyControl = freq; // Only update the driver's copy if the write was successful
@@ -136,7 +136,7 @@ bool sfDevSiT5358::setOEControl(bool oe)
     theBytes[2] = (uint8_t)((unsignedSigned32.unsigned32 & 0x03000000) >> 24) | (((uint8_t)oe) << 2);
     theBytes[3] = (uint8_t)((unsignedSigned32.unsigned32 & 0x00FF0000) >> 16);
 
-    if (_theBus->writeRegisterRegion(kSfeSiT5358RegControlLSW, (const uint8_t *)&theBytes[0], 4) != ksfTkErrOk)
+    if (_theBus->writeRegister(kSfeSiT5358RegControlLSW, (const uint8_t *)&theBytes[0], 4) != ksfTkErrOk)
         return false; // Return false if the write failed
 
     _oe = oe; // Only update the driver's copy if the write was successful
@@ -160,7 +160,7 @@ bool sfDevSiT5358::setPullRangeControl(uint8_t pullRange)
     theBytes[0] = 0;
     theBytes[1] = pullRange & 0x0F;
 
-    if (_theBus->writeRegisterRegion(kSfeSiT5358RegPullRange, (const uint8_t *)&theBytes[0], 2) != ksfTkErrOk)
+    if (_theBus->writeRegister(kSfeSiT5358RegPullRange, (const uint8_t *)&theBytes[0], 2) != ksfTkErrOk)
         return false; // Return false if the write failed
 
     _pullRange = pullRange; // Only update the driver's copy if the write was successful
